@@ -8,12 +8,13 @@ const DB_NAME = 'valiant';
 const COLLECTIONS = {
     day: 'players',
     week: 'players_week',
-    month: 'players_month'
+    month: 'players_month',
+    year: 'players_year' // ✅ Yearly collection added
 };
 
 let client;
 let collections = {};
-let resetDone = { day: false, week: false, month: false };
+let resetDone = { day: false, week: false, month: false, year: false }; // ✅ Year added
 
 // Tracks player name => number of consecutive minutes online
 const seenPlayers = new Map();
@@ -26,6 +27,7 @@ async function connectToMongoDB() {
         collections.day = db.collection(COLLECTIONS.day);
         collections.week = db.collection(COLLECTIONS.week);
         collections.month = db.collection(COLLECTIONS.month);
+        collections.year = db.collection(COLLECTIONS.year); // ✅ Year collection initialized
         console.log('✅ Connected to MongoDB');
     } catch (err) {
         console.error('❌ MongoDB connection error:', err);
@@ -141,27 +143,18 @@ connectToMongoDB().then(() => {
                 console.log('🧹 Monthly reset (1st 00:00 UK)');
                 resetDone.month = true;
             }
+
+            if (isFirstDayOfMonth(now) && now.getMonth() === 0 && !resetDone.year) {
+                await collections.year.deleteMany({});
+                console.log('🧹 Yearly reset (Jan 1st 00:00 UK)');
+                resetDone.year = true;
+            }
         }
 
         // Reset the flags at 00:01 UK
         if (hours === 0 && minutes === 1) {
-            resetDone = { day: false, week: false, month: false };
+            resetDone = { day: false, week: false, month: false, year: false }; // ✅ Reset all flags
         }
 
     }, 60000); // every 1 minute
 });
-
-const server = http.createServer((req, res) => {
-    if (req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('OK');
-    } else {
-      res.writeHead(404);
-      res.end();
-    }
-  });
-  
-  const PORT = 8000;
-  server.listen(PORT, () => {
-    console.log(`✅ Health check server running on port ${PORT}`);
-  });
